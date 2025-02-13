@@ -2,12 +2,50 @@
 
 [Syle-Bert-VITS2](https://github.com/tsukumijima/Style-Bert-VITS2/tree/69646d5085b833f1ccb8f073305540669cc47cf9)からより日本語特化に改良したライブラリ
 
+
+<!-- TOC -->
+* [next-sbv2](#next-sbv2)
+  * [改善点](#改善点)
+  * [学習方法(docker + cli)](#学習方法docker--cli)
+* [Style-Bert-VITS2](#style-bert-vits2)
+  * [使い方](#使い方)
+    * [動作環境](#動作環境)
+    * [インストール](#インストール)
+      * [GitやPythonに馴染みが無い方](#gitやpythonに馴染みが無い方)
+      * [GitやPython使える人](#gitやpython使える人)
+    * [音声合成](#音声合成)
+    * [学習](#学習)
+      * [データセット作り](#データセット作り)
+      * [学習WebUI](#学習webui)
+    * [スタイルの生成](#スタイルの生成)
+    * [API Server](#api-server)
+    * [マージ](#マージ)
+    * [自然性評価](#自然性評価)
+  * [Bert-VITS2との関係](#bert-vits2との関係)
+  * [References](#references)
+  * [LICENSE](#license)
+  * [Below is the original README.md.](#below-is-the-original-readmemd)
+* [Bert-VITS2](#bert-vits2)
+  * [请注意，本项目核心思路来源于anyvoiceai/MassTTS 一个非常好的tts项目](#请注意本项目核心思路来源于anyvoiceaimasstts-一个非常好的tts项目)
+  * [MassTTS的演示demo为ai版峰哥锐评峰哥本人,并找回了在金三角失落的腰子](#masstts的演示demo为ai版峰哥锐评峰哥本人并找回了在金三角失落的腰子)
+  * [成熟的旅行者/开拓者/舰长/博士/sensei/猎魔人/喵喵露/V应当参阅代码自己学习如何训练。](#成熟的旅行者开拓者舰长博士sensei猎魔人喵喵露v应当参阅代码自己学习如何训练)
+    * [严禁将此项目用于一切违反《中华人民共和国宪法》，《中华人民共和国刑法》，《中华人民共和国治安管理处罚法》和《中华人民共和国民法典》之用途。](#严禁将此项目用于一切违反中华人民共和国宪法中华人民共和国刑法中华人民共和国治安管理处罚法和中华人民共和国民法典之用途)
+    * [严禁用于任何政治相关用途。](#严禁用于任何政治相关用途)
+      * [Video:https://www.bilibili.com/video/BV1hp4y1K78E](#videohttpswwwbilibilicomvideobv1hp4y1k78e)
+      * [Demo:https://www.bilibili.com/video/BV1TF411k78w](#demohttpswwwbilibilicomvideobv1tf411k78w)
+      * [QQ Group：815818430](#qq-group815818430)
+  * [References](#references-1)
+  * [感谢所有贡献者作出的努力](#感谢所有贡献者作出的努力)
+<!-- TOC -->
+
 ## 改善点
 * bertモデルを[sbintuitions/modernbert-ja-130m](sbintuitions/modernbert-ja-130m)に置き換え
 * 前処理をtorchaudioに変更
 * 日本語モデルに関係処理およびファイルの削除(その他も削除)
 
 ## 学習方法(docker + cli)
+
+**local build**
 
 1. docker build
 
@@ -22,8 +60,32 @@ docker run --gpus all -it --rm -v .:/workspace --name sbv2-container sbv2:latest
 
 ```
 
+**docker pull**
+1. docker pull
+
+```bash
+docker pull ayousanz/next-sbv2:latest
+```
+
+2. docker run
+
+```bash
+docker run --gpus all -it --rm -v .:/workspace --name sbv2-container ayousanz/next-sbv2:latest /bin/bash
+```
+
+3. run webui
+
+```bash
+python initialize.py
+```
+
+```bash
+python app.py
+```
+
 --------------------
 
+# Style-Bert-VITS2
 
 **利用の際は必ず[お願いとデフォルトモデルの利用規約](/docs/TERMS_OF_USE.md)をお読みください。**
 
