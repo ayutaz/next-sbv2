@@ -174,18 +174,9 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
             logger.warning("Bert load Failed")
             logger.warning(e)
 
-        if language_str == "ZH":
-            bert = bert_ori
-            ja_bert = torch.zeros(1024, len(phone))
-            en_bert = torch.zeros(1024, len(phone))
-        elif language_str == "JP":
-            bert = torch.zeros(1024, len(phone))
-            ja_bert = bert_ori
-            en_bert = torch.zeros(1024, len(phone))
-        elif language_str == "EN":
-            bert = torch.zeros(1024, len(phone))
-            ja_bert = torch.zeros(1024, len(phone))
-            en_bert = bert_ori
+        bert = torch.zeros(512, len(phone))
+        ja_bert = bert_ori
+        en_bert = torch.zeros(512, len(phone))
         phone = torch.LongTensor(phone)
         tone = torch.LongTensor(tone)
         language = torch.LongTensor(language)
@@ -233,10 +224,10 @@ class TextAudioSpeakerCollate:
         tone_padded = torch.LongTensor(len(batch), max_text_len)
         language_padded = torch.LongTensor(len(batch), max_text_len)
         # This is ZH bert if not use_jp_extra, JA bert if use_jp_extra
-        bert_padded = torch.FloatTensor(len(batch), 1024, max_text_len)
+        bert_padded = torch.FloatTensor(len(batch), 512, max_text_len)
         if not self.use_jp_extra:
-            ja_bert_padded = torch.FloatTensor(len(batch), 1024, max_text_len)
-            en_bert_padded = torch.FloatTensor(len(batch), 1024, max_text_len)
+            ja_bert_padded = torch.FloatTensor(len(batch), 512, max_text_len)
+            en_bert_padded = torch.FloatTensor(len(batch), 512, max_text_len)
         style_vec = torch.FloatTensor(len(batch), 256)
 
         spec_padded = torch.FloatTensor(len(batch), batch[0][1].size(0), max_spec_len)

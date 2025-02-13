@@ -139,18 +139,11 @@ def get_text(
     del word2ph
     assert bert_ori.shape[-1] == len(phone), phone
 
-    if language_str == Languages.ZH:
-        bert = bert_ori
-        ja_bert = torch.zeros(1024, len(phone))
-        en_bert = torch.zeros(1024, len(phone))
-    elif language_str == Languages.JP:
-        bert = torch.zeros(1024, len(phone))
+
+    if language_str == Languages.JP:
+        bert = torch.zeros(512, len(phone))
         ja_bert = bert_ori
-        en_bert = torch.zeros(1024, len(phone))
-    elif language_str == Languages.EN:
-        bert = torch.zeros(1024, len(phone))
-        ja_bert = torch.zeros(1024, len(phone))
-        en_bert = bert_ori
+        en_bert = torch.zeros(512, len(phone))
     else:
         raise ValueError("language_str should be ZH, JP or EN")
 
