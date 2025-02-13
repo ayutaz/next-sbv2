@@ -7,6 +7,8 @@
 * [next-sbv2](#next-sbv2)
   * [改善点](#改善点)
   * [学習方法(docker + cli)](#学習方法docker--cli)
+    * [docker環境の準備](#docker環境の準備)
+    * [学習](#学習)
 * [Style-Bert-VITS2](#style-bert-vits2)
   * [使い方](#使い方)
     * [動作環境](#動作環境)
@@ -14,7 +16,7 @@
       * [GitやPythonに馴染みが無い方](#gitやpythonに馴染みが無い方)
       * [GitやPython使える人](#gitやpython使える人)
     * [音声合成](#音声合成)
-    * [学習](#学習)
+    * [学習](#学習-1)
       * [データセット作り](#データセット作り)
       * [学習WebUI](#学習webui)
     * [スタイルの生成](#スタイルの生成)
@@ -45,6 +47,8 @@
 
 ## 学習方法(docker + cli)
 
+### docker環境の準備
+
 **local build**
 
 1. docker build
@@ -73,7 +77,8 @@ docker pull ayousanz/next-sbv2:latest
 docker run --gpus all -it --rm -v .:/workspace --name sbv2-container ayousanz/next-sbv2:latest /bin/bash
 ```
 
-3. run webui
+### 学習
+1. run webui
 
 ```bash
 python initialize.py
