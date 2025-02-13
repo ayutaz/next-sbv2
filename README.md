@@ -1,4 +1,29 @@
-# Style-Bert-VITS2
+# next-sbv2
+
+[Syle-Bert-VITS2](https://github.com/tsukumijima/Style-Bert-VITS2/tree/69646d5085b833f1ccb8f073305540669cc47cf9)からより日本語特化に改良したライブラリ
+
+## 改善点
+* bertモデルを[sbintuitions/modernbert-ja-130m](sbintuitions/modernbert-ja-130m)に置き換え
+* 前処理をtorchaudioに変更
+* 日本語モデルに関係処理およびファイルの削除(その他も削除)
+
+## 学習方法(docker + cli)
+
+1. docker build
+
+```bash
+docker build -t next-sbv2 .
+```
+
+2. docker run
+
+```bash
+docker run --gpus all -it --rm -v .:/workspace --name sbv2-container sbv2:latest /bin/bash
+
+```
+
+--------------------
+
 
 **利用の際は必ず[お願いとデフォルトモデルの利用規約](/docs/TERMS_OF_USE.md)をお読みください。**
 
