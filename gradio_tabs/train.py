@@ -341,7 +341,7 @@ def train(
     with open("config.yml", "w", encoding="utf-8") as f:
         yaml.dump(yml_data, f, allow_unicode=True)
 
-    train_py = "train_ms.py" if not use_jp_extra else "train_ms_jp_extra.py"
+    train_py = "train_ms_jp_extra.py"
     cmd = [
         train_py,
         "--config",

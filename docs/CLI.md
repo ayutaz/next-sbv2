@@ -89,11 +89,6 @@ Optional:
 
 Training settings are automatically loaded from the above process.
 
-If NOT using JP-Extra model:
-```bash
-python train_ms.py [--repo_id <username>/<repo_name>]
-```
-
 If using JP-Extra model:
 ```bash
 python train_ms_jp_extra.py [--repo_id <username>/<repo_name>] [--skip_default_style]
