@@ -54,7 +54,7 @@
 1. docker build
 
 ```bash
-docker build -t next-sbv2 .
+docker build -t sbv2:latest .
 ```
 
 2. docker run
@@ -68,13 +68,13 @@ docker run --gpus all -it --rm -v .:/workspace --name sbv2-container sbv2:latest
 1. docker pull
 
 ```bash
-docker pull ayousanz/next-sbv2:latest
+docker pull ayousanz/sbv2:latest
 ```
 
 2. docker run
 
 ```bash
-docker run --gpus all -it --rm -v .:/workspace --name sbv2-container ayousanz/next-sbv2:latest /bin/bash
+docker run --gpus all -it --rm -v .:/workspace --name sbv2-container ayousanz/sbv2:latest /bin/bash
 ```
 
 ### 学習
