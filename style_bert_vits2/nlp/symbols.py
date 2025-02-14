@@ -90,6 +90,7 @@ JP_SYMBOLS = [
     "e",
     "e:",
     "f",
+    "kw",
     "g",
     "gy",
     "h",

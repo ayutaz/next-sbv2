@@ -8,6 +8,15 @@ from huggingface_hub import hf_hub_download
 
 from style_bert_vits2.logging import logger
 
+def download_jp_extra_pretrained_models():
+    files = ["G_0.safetensors", "D_0.safetensors", "WD_0.safetensors"]
+    local_path = Path("pretrained_jp_extra")
+    for file in files:
+        if not Path(local_path).joinpath(file).exists():
+            logger.info(f"Downloading JP-Extra pretrained {file}")
+            hf_hub_download(
+                "litagin/Style-Bert-VITS2-2.0-base-JP-Extra", file, local_dir=local_path
+            )
 
 def download_modernbert():
     """
@@ -59,6 +68,7 @@ def main():
 
     # Always download ModernBERT
     download_modernbert()
+    download_jp_extra_pretrained_models()
 
     # If configs/paths.yml not exists, create it
     default_paths_yml = Path("configs/default_paths.yml")

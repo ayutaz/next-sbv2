@@ -9,27 +9,19 @@ VERSION = "2.7.0"
 # Style-Bert-VITS2 のベースディレクトリ
 BASE_DIR = Path(__file__).parent.parent
 
-
-# 利用可能な言語
-## JP-Extra モデル利用時は JP 以外の言語の音声合成はできない
+# 利用可能な言語（日本語のみ）
 class Languages(StrEnum):
     JP = "JP"
-    EN = "EN"
-    ZH = "ZH"
 
 
 # 言語ごとのデフォルトの BERT モデルのパス
 DEFAULT_BERT_MODEL_PATHS = {
-    Languages.JP: BASE_DIR / "bert" / "deberta-v2-large-japanese-char-wwm",
-    Languages.EN: BASE_DIR / "bert" / "deberta-v3-large",
-    Languages.ZH: BASE_DIR / "bert" / "chinese-roberta-wwm-ext-large",
+    Languages.JP: BASE_DIR / "bert" / "modernbert-ja-130m",
 }
 
-# 言語ごとのデフォルトの BERT モデル (ONNX 版) のパス
+# ONNX版を利用しない or 同様に modernbert-ja-130m があるならパス指定
 DEFAULT_ONNX_BERT_MODEL_PATHS = {
-    Languages.JP: BASE_DIR / "bert" / "deberta-v2-large-japanese-char-wwm-onnx",
-    Languages.EN: BASE_DIR / "bert" / "deberta-v3-large-onnx",
-    Languages.ZH: BASE_DIR / "bert" / "chinese-roberta-wwm-ext-large-onnx",
+    Languages.JP: BASE_DIR / "bert" / "modernbert-ja-130m-onnx",
 }
 
 # デフォルトのユーザー辞書ディレクトリ

@@ -74,18 +74,10 @@ def get_text_onnx(
     del word2ph
     assert bert_ori.shape[-1] == len(phone), phone
 
-    if language_str == Languages.ZH:
-        bert = bert_ori
-        ja_bert = np.zeros((1024, len(phone)), dtype=np.float32)
-        en_bert = np.zeros((1024, len(phone)), dtype=np.float32)
-    elif language_str == Languages.JP:
+    if language_str == Languages.JP:
         bert = np.zeros((1024, len(phone)), dtype=np.float32)
         ja_bert = bert_ori
         en_bert = np.zeros((1024, len(phone)), dtype=np.float32)
-    elif language_str == Languages.EN:
-        bert = np.zeros((1024, len(phone)), dtype=np.float32)
-        ja_bert = np.zeros((1024, len(phone)), dtype=np.float32)
-        en_bert = bert_ori
     else:
         raise ValueError("language_str should be ZH, JP or EN")
 

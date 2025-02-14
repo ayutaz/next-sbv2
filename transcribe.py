@@ -165,10 +165,6 @@ if __name__ == "__main__":
 
     if language == "ja":
         language_id = Languages.JP.value
-    elif language == "en":
-        language_id = Languages.EN.value
-    elif language == "zh":
-        language_id = Languages.ZH.value
     else:
         raise ValueError(f"{language} is not supported.")
 

@@ -13,6 +13,7 @@ from style_bert_vits2.nlp import clean_text
 from style_bert_vits2.nlp.japanese import pyopenjtalk_worker
 from style_bert_vits2.nlp.japanese.user_dict import update_dict
 from style_bert_vits2.utils.stdout_wrapper import SAFE_STDOUT
+import re
 
 
 # このプロセスからはワーカーを起動して辞書を使いたいので、ここで初期化
@@ -43,10 +44,16 @@ def process_line(
     use_jp_extra: bool,
     yomi_error: str,
 ):
+    print("[Step3-debug] original line =>", line.strip())
     splitted_line = line.strip().split("|")
     if len(splitted_line) != 4:
         raise ValueError(f"Invalid line format: {line.strip()}")
     utt, spk, language, text = splitted_line
+    text_before = text  # デバッグ用
+    text = re.sub(r"[,\.、。！？]", "", text)
+
+    # --- デバッグログ追加 ---
+    print(f"[Step3-debug] after re.sub => {text_before} => {text}")
     norm_text, phones, tones, word2ph = clean_text(
         text=text,
         language=language,  # type: ignore
@@ -55,6 +62,18 @@ def process_line(
     )
     if correct_path:
         utt = str(transcription_path.parent / "wavs" / utt)
+
+    output_line = "{}|{}|{}|{}|{}|{}|{}\n".format(
+        utt,
+        spk,
+        language,
+        norm_text,
+        " ".join(phones),
+        " ".join([str(i) for i in tones]),
+        " ".join([str(i) for i in word2ph]),
+    )
+
+    print("[Step3-debug] final output_line =>", output_line.strip())
 
     return "{}|{}|{}|{}|{}|{}|{}\n".format(
         utt,
