@@ -85,7 +85,7 @@ python initialize.py
 ```
 
 ```bash
-python app.py
+python app.py --share
 ```
 
 --------------------
