@@ -94,9 +94,11 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
         # separate filename, speaker_id and text
         audiopath, sid, language, text, phones, tone, word2ph = audiopath_sid_text
 
-        bert, ja_bert, en_bert, phones, tone, language = self.get_text(
-            text, word2ph, phones, tone, language, audiopath
-        )
+        text_res = self.get_text(text, word2ph, phones, tone, language, audiopath)
+        if text_res is None:
+            return None
+
+        bert, ja_bert, en_bert, phones, tone, language = text_res
 
         spec, wav = self.get_audio(audiopath)
         sid = torch.LongTensor([int(self.spk_map[sid])])
@@ -158,28 +160,55 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
         return spec, audio_norm
 
     def get_text(self, text, word2ph, phone, tone, language_str, wav_path):
+        # 1) cleaned_text_to_sequence() で phone / tone / language を ID 化
         phone, tone, language = cleaned_text_to_sequence(phone, tone, language_str)
+
+        # 2) add_blank が True の場合、intersperse() でブランクを挿入
         if self.add_blank:
             phone = commons.intersperse(phone, 0)
             tone = commons.intersperse(tone, 0)
             language = commons.intersperse(language, 0)
             for i in range(len(word2ph)):
-                word2ph[i] = word2ph[i] * 2
+                word2ph[i] *= 2
             word2ph[0] += 1
-        bert_path = wav_path.replace(".wav", ".bert.pt")
+
+        # 3) .bert.pt をロード
+        bert_path = wav_path.replace(".wav", ".bert.pt").replace(".WAV", ".bert.pt")
+        # ここで大文字/小文字を揃えたい場合はさらに何か処理が必要
+
+        # 3-1) ファイルが存在するか
+        if not os.path.exists(bert_path):
+            # 無い場合どうするか
+            logger.warning(f"No .bert.pt found for {wav_path}: {bert_path}")
+            return None  # スキップ or raise FileNotFoundError(...)
+
+        # 3-2) ロードを試みる
         try:
             bert_ori = torch.load(bert_path)
-            assert bert_ori.shape[-1] == len(phone)
         except Exception as e:
-            logger.warning("Bert load Failed")
+            logger.warning(f"Failed to load .bert.pt from {bert_path}")
             logger.warning(e)
+            return None  # スキップ
 
+        # 3-3) 形状チェック: phone の長さと一致しているか
+        #     ここで “assert bert_ori.shape[-1] == len(phone)” が合わない場合、
+        #     そのサンプルをスキップ or エラーにする
+        if bert_ori.shape[-1] != len(phone):
+            logger.warning(
+                f".bert.pt shape mismatch: {bert_ori.shape[-1]} vs phone len={len(phone)} => skip {wav_path}")
+            return None
+
+        # 4) 必要なら, このあと bert, ja_bert, en_bert に仕立てる
+        #    もし “JP only” なら en_bert は不要なら削除しても良い。
         bert = torch.zeros(512, len(phone))
         ja_bert = bert_ori
         en_bert = torch.zeros(512, len(phone))
+
+        # 5) 整形
         phone = torch.LongTensor(phone)
         tone = torch.LongTensor(tone)
         language = torch.LongTensor(language)
+
         return bert, ja_bert, en_bert, phone, tone, language
 
     def get_sid(self, sid):
@@ -206,6 +235,11 @@ class TextAudioSpeakerCollate:
         ------
         batch: [text_normalized, spec_normalized, wav_normalized, sid]
         """
+        batch = [x for x in batch if x is not None]
+        # もし全てが None で空になったら、return None して学習ループでスキップできるようにする
+        if len(batch) == 0:
+            return None
+
         # Right zero-pad all one-hot text sequences to max input length
         _, ids_sorted_decreasing = torch.sort(
             torch.LongTensor([x[1].size(1) for x in batch]), dim=0, descending=True

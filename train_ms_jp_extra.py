@@ -705,19 +705,14 @@ def train_and_evaluate(
         net_dur_disc.train()
     if net_wd is not None:
         net_wd.train()
-    for batch_idx, (
-        x,
-        x_lengths,
-        spec,
-        spec_lengths,
-        y,
-        y_lengths,
-        speakers,
-        tone,
-        language,
-        bert,
-        style_vec,
-    ) in enumerate(train_loader):
+    for batch_idx, batch in enumerate(train_loader):
+        if batch is None:
+            continue
+
+        (x, x_lengths, spec, spec_lengths,
+         y, y_lengths, speakers, tone, language,
+         bert, style_vec) = batch
+
         if net_g.module.use_noise_scaled_mas:
             current_mas_noise_scale = (
                 net_g.module.mas_noise_scale_initial
@@ -1065,6 +1060,8 @@ def evaluate(hps, generator, eval_loader, writer_eval):
             bert,
             style_vec,
         ) in enumerate(eval_loader):
+            if (x is None) or (x_lengths is None):
+                continue
             x, x_lengths = x.cuda(), x_lengths.cuda()
             spec, spec_lengths = spec.cuda(), spec_lengths.cuda()
             y, y_lengths = y.cuda(), y_lengths.cuda()
@@ -1140,4 +1137,8 @@ def evaluate(hps, generator, eval_loader, writer_eval):
 
 
 if __name__ == "__main__":
+    import torch.multiprocessing as mp
+
+    # まだ何の処理も始める前に spawn をセット
+    mp.set_start_method("spawn", force=True)
     run()
