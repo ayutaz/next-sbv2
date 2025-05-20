@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional, Sequence, Union
+from typing import Any, Optional, Sequence, Union, TYPE_CHECKING
 
 import numpy as np
 import onnxruntime
@@ -8,83 +8,72 @@ from numpy.typing import NDArray
 
 from style_bert_vits2.constants import Languages
 from style_bert_vits2.nlp import bert_models, onnx_bert_models
-from style_bert_vits2.nlp.japanese.g2p import text_to_sep_kata
 from style_bert_vits2.utils import get_onnx_device_options
-
 
 if TYPE_CHECKING:
     import torch
 
 
+# ------------------------------------------------------------------
+#  PyTorch 推論
+# ------------------------------------------------------------------
 def extract_bert_feature(
     text: str,
     word2ph: list[int],
     device: str,
     assist_text: Optional[str] = None,
     assist_text_weight: float = 0.7,
-) -> torch.Tensor:
+) -> "torch.Tensor":
     """
-    日本語のテキストから BERT の特徴量を抽出する (PyTorch 推論)
+    BERT 特徴量を PyTorch で抽出（char-only 版）。
 
-    Args:
-        text (str): 日本語のテキスト
-        word2ph (list[int]): 元のテキストの各文字に音素が何個割り当てられるかを表すリスト
-        device (str): 推論に利用するデバイス
-        assist_text (Optional[str], optional): 補助テキスト (デフォルト: None)
-        assist_text_weight (float, optional): 補助テキストの重み (デフォルト: 0.7)
-
-    Returns:
-        torch.Tensor: BERT の特徴量
+    * phones と同数の token を返すので g2p で付与した PAD は不要。
     """
-
     import torch
 
-    # 各単語が何文字かを作る `word2ph` を使う必要があるので、読めない文字は必ず無視する
-    # でないと `word2ph` の結果とテキストの文字数結果が整合性が取れない
-    text = "".join(text_to_sep_kata(text, raise_yomi_error=False)[0])
-    if assist_text:
-        assist_text = "".join(text_to_sep_kata(assist_text, raise_yomi_error=False)[0])
+    tokenizer = bert_models.load_tokenizer(Languages.JP)
+    tokens = tokenizer.tokenize(text)           # g2p と同一のトークン列
+    inputs = tokenizer(text, return_tensors="pt")
 
     if device == "cuda" and not torch.cuda.is_available():
         device = "cpu"
+
     model = bert_models.load_model(Languages.JP, device_map=device)
     bert_models.transfer_model(Languages.JP, device)
+    for k in inputs:
+        inputs[k] = inputs[k].to(device)        # type: ignore
 
-    style_res_mean = None
     with torch.no_grad():
-        tokenizer = bert_models.load_tokenizer(Languages.JP)
-        inputs = tokenizer(text, return_tensors="pt")
-        for i in inputs:
-            inputs[i] = inputs[i].to(device)  # type: ignore
-        res = model(**inputs, output_hidden_states=True)
-        res = torch.cat(res["hidden_states"][-3:-2], -1)[0].cpu()
+        outputs = model(**inputs, output_hidden_states=True)
+        hs = torch.cat(outputs.hidden_states[-3:-2], -1)[0].cpu()  # CLS + tokens + SEP
+        hs = hs[1 : 1 + len(tokens)]                               # token 部分だけ抜き出す
+
+        # assist_text ありの場合
+        style_mean = None
         if assist_text:
-            style_inputs = tokenizer(assist_text, return_tensors="pt")
-            for i in style_inputs:
-                style_inputs[i] = style_inputs[i].to(device)  # type: ignore
-            style_res = model(**style_inputs, output_hidden_states=True)
-            style_res = torch.cat(style_res["hidden_states"][-3:-2], -1)[0].cpu()
-            style_res_mean = style_res.mean(0)
+            st_inputs = tokenizer(assist_text, return_tensors="pt")
+            for k in st_inputs:
+                st_inputs[k] = st_inputs[k].to(device)  # type: ignore
+            st_out = model(**st_inputs, output_hidden_states=True)
+            st_hs = torch.cat(st_out.hidden_states[-3:-2], -1)[0].cpu()
+            style_mean = st_hs.mean(0)
 
-    assert len(word2ph) == len(text) + 2, text
-    word2phone = word2ph
-    phone_level_feature = []
-    for i in range(len(word2phone)):
-        if assist_text:
-            assert style_res_mean is not None
-            repeat_feature = (
-                res[i].repeat(word2phone[i], 1) * (1 - assist_text_weight)
-                + style_res_mean.repeat(word2phone[i], 1) * assist_text_weight
-            )
-        else:
-            repeat_feature = res[i].repeat(word2phone[i], 1)
-        phone_level_feature.append(repeat_feature)
+    assert len(word2ph) == len(tokens), (len(word2ph), len(tokens))
 
-    phone_level_feature = torch.cat(phone_level_feature, dim=0)
+    feat_chunks = []
+    for i, n_rep in enumerate(word2ph):
+        base = hs[i].repeat(n_rep, 1)
+        if assist_text and style_mean is not None:
+            base = base * (1 - assist_text_weight) + style_mean.repeat(n_rep, 1) * assist_text_weight
+        feat_chunks.append(base)
 
-    return phone_level_feature.T
+    phone_level_feature = torch.cat(feat_chunks, 0)   # [phones, hidden]
+    return phone_level_feature.T                      # [hidden, phones]
 
 
+# ------------------------------------------------------------------
+#  ONNX 推論
+# ------------------------------------------------------------------
 def extract_bert_feature_onnx(
     text: str,
     word2ph: list[int],
@@ -93,92 +82,46 @@ def extract_bert_feature_onnx(
     assist_text_weight: float = 0.7,
 ) -> NDArray[Any]:
     """
-    日本語のテキストから BERT の特徴量を抽出する (ONNX 推論)
-
-    Args:
-        text (str): 日本語のテキスト
-        word2ph (list[int]): 元のテキストの各文字に音素が何個割り当てられるかを表すリスト
-        onnx_providers (list[str]): ONNX 推論で利用する ExecutionProvider (CPUExecutionProvider, CUDAExecutionProvider など)
-        assist_text (Optional[str], optional): 補助テキスト (デフォルト: None)
-        assist_text_weight (float, optional): 補助テキストの重み (デフォルト: 0.7)
-
-    Returns:
-        NDArray[Any]: BERT の特徴量
+    BERT 特徴量を ONNXRuntime で抽出（char-only 版）。
     """
-
-    # 各単語が何文字かを作る `word2ph` を使う必要があるので、読めない文字は必ず無視する
-    # でないと `word2ph` の結果とテキストの文字数結果が整合性が取れない
-    text = "".join(text_to_sep_kata(text, raise_yomi_error=False)[0])
-    if assist_text:
-        assist_text = "".join(text_to_sep_kata(assist_text, raise_yomi_error=False)[0])
-
-    # トークナイザーとモデルの読み込み
     tokenizer = onnx_bert_models.load_tokenizer(Languages.JP)
-    session = onnx_bert_models.load_model(
-        language=Languages.JP,
-        onnx_providers=onnx_providers,
-    )
-    input_names = [input.name for input in session.get_inputs()]
+    tokens = tokenizer.tokenize(text)
+
+    session = onnx_bert_models.load_model(Languages.JP, onnx_providers)
+    input_names = [i.name for i in session.get_inputs()]
     output_name = session.get_outputs()[0].name
 
-    # 入力テンソルの転送に使用するデバイス種別, デバイス ID, 実行オプションを取得
-    device_type, device_id, run_options = get_onnx_device_options(session, onnx_providers)  # fmt: skip
+    dev_type, dev_id, run_opt = get_onnx_device_options(session, onnx_providers)
 
-    # 入力をテンソルに変換
-    inputs = tokenizer(text, return_tensors="np")
-    input_tensor = [
-        inputs["input_ids"].astype(np.int64),  # type: ignore
-        inputs["attention_mask"].astype(np.int64),  # type: ignore
-    ]
-    # 推論デバイスに入力テンソルを割り当て
-    ## GPU 推論の場合、device_type + device_id に対応する GPU デバイスに入力テンソルが割り当てられる
-    io_binding = session.io_binding()
-    for name, value in zip(input_names, input_tensor):
-        gpu_tensor = onnxruntime.OrtValue.ortvalue_from_numpy(
-            value, device_type, device_id
-        )
-        io_binding.bind_ortvalue_input(name, gpu_tensor)
-    # text から BERT 特徴量を抽出
-    io_binding.bind_output(output_name, device_type)
-    session.run_with_iobinding(io_binding, run_options=run_options)
-    res = io_binding.get_outputs()[0].numpy()
-
-    style_res_mean = None
-    if assist_text:
-        # 入力をテンソルに変換
-        style_inputs = tokenizer(assist_text, return_tensors="np")
-        style_input_tensor = [
-            style_inputs["input_ids"].astype(np.int64),  # type: ignore
-            style_inputs["attention_mask"].astype(np.int64),  # type: ignore
+    def _run_onnx(txt: str) -> NDArray[Any]:
+        ins = tokenizer(txt, return_tensors="np")
+        tensors = [
+            ins["input_ids"].astype(np.int64),      # type: ignore
+            ins["attention_mask"].astype(np.int64), # type: ignore
         ]
-        # 推論デバイスに入力テンソルを割り当て
-        ## GPU 推論の場合、device_type + device_id に対応する GPU デバイスに入力テンソルが割り当てられる
-        io_binding = session.io_binding()  # IOBinding は作り直す必要がある
-        for name, value in zip(input_names, style_input_tensor):
-            gpu_tensor = onnxruntime.OrtValue.ortvalue_from_numpy(
-                value, device_type, device_id
-            )
-            io_binding.bind_ortvalue_input(name, gpu_tensor)
-        # assist_text から BERT 特徴量を抽出
-        io_binding.bind_output(output_name, device_type)
-        session.run_with_iobinding(io_binding, run_options=run_options)
-        style_res = io_binding.get_outputs()[0].numpy()
-        style_res_mean = np.mean(style_res, axis=0)
+        io_bind = session.io_binding()
+        for name, val in zip(input_names, tensors):
+            ov = onnxruntime.OrtValue.ortvalue_from_numpy(val, dev_type, dev_id)
+            io_bind.bind_ortvalue_input(name, ov)
+        io_bind.bind_output(output_name, dev_type)
+        session.run_with_iobinding(io_bind, run_options=run_opt)
+        return io_bind.get_outputs()[0].numpy()
 
-    assert len(word2ph) == len(text) + 2, text
-    word2phone = word2ph
-    phone_level_feature = []
-    for i in range(len(word2phone)):
-        if assist_text:
-            assert style_res_mean is not None
-            repeat_feature = (
-                np.tile(res[i], (word2phone[i], 1)) * (1 - assist_text_weight)
-                + np.tile(style_res_mean, (word2phone[i], 1)) * assist_text_weight
-            )
-        else:
-            repeat_feature = np.tile(res[i], (word2phone[i], 1))
-        phone_level_feature.append(repeat_feature)
+    res = _run_onnx(text)[1 : 1 + len(tokens)]        # drop CLS
 
-    phone_level_feature = np.concatenate(phone_level_feature, axis=0)
+    style_mean = None
+    if assist_text:
+        style = _run_onnx(assist_text)[1:-1]          # drop CLS/SEP
+        style_mean = style.mean(0)
 
-    return phone_level_feature.T
+    assert len(word2ph) == len(tokens), (len(word2ph), len(tokens))
+
+    chunks: list[NDArray[Any]] = []
+    for i, n_rep in enumerate(word2ph):
+        base = np.tile(res[i], (n_rep, 1))
+        if assist_text and style_mean is not None:
+            base = base * (1 - assist_text_weight) + np.tile(style_mean, (n_rep, 1)) * assist_text_weight
+        chunks.append(base)
+
+    phone_level_feature = np.concatenate(chunks, axis=0)   # [phones, hidden]
+    return phone_level_feature.T                           # [hidden, phones]

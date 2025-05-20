@@ -169,7 +169,13 @@ EN_SYMBOLS = [
 NUM_EN_TONES = 4
 
 # Combine all symbols
-NORMAL_SYMBOLS = sorted(set(ZH_SYMBOLS + JP_SYMBOLS + EN_SYMBOLS))
+from style_bert_vits2.nlp import bert_models
+from style_bert_vits2.constants import Languages
+
+# BERT 日本語語彙をそのままシンボルとして使う
+BERT_SYMBOLS = list(bert_models.load_tokenizer(Languages.JP).vocab.keys())
+
+NORMAL_SYMBOLS = sorted(set(ZH_SYMBOLS + EN_SYMBOLS + BERT_SYMBOLS))
 SYMBOLS = [PAD] + NORMAL_SYMBOLS + PUNCTUATION_SYMBOLS
 SIL_PHONEMES_IDS = [SYMBOLS.index(i) for i in PUNCTUATION_SYMBOLS]
 
